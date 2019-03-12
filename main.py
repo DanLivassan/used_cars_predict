@@ -11,7 +11,7 @@ df.dropna(inplace=True)
 df.sold_at = pd.to_datetime(df.sold_at)
 df.registration_date = pd.to_datetime(df.registration_date)
 df = df.query('price < 60000')
-print(df.head())
+
 """
 for i in range(1, 12):
     print("Mes {}:".format(i))
@@ -23,26 +23,34 @@ for i in range(1, 12):
     else:
         print("Não foram vendidos carros neste mês")
 """
-paint_colors = list(df.paint_color.unique())
-price_paint_color = []
-for paint_color in paint_colors:
-    df[df.paint_color == paint_color].mean()
-    price_paint_color.append({'cor': paint_color, 'price_mean': df[df.paint_color == paint_color].price.mean()})
-price_paint_color = sorted(price_paint_color, key=lambda k: k['price_mean'])
 
 
+def normalize_features(features:list):
+    normalized_features = []
+    for item in features:
+        p = (item['mean'] - features[0]['mean']) / (
+                    features[-1]['mean'] - features[0]['mean'])
+        normalized_features.append(p)
+    return normalized_features
 
 
+def cat_mean(feature:str, df:pd.DataFrame):
+    features_list = list(df[feature].unique())
+    features_values_list = []
+    for f in features_list:
+        m = df[df[feature] == f].price.mean()
+        features_values_list.append({feature: f, 'mean': m})
+    features_values_list = sorted(features_values_list, key=lambda k: k['mean'])
+    normalized_features = normalize_features(features_values_list)
+    for f in features_values_list:
+        df.loc[df[feature] == f[feature], feature] = normalized_features[features_values_list.index(f)]
+    df[feature] = pd.to_numeric(df[feature])
+    return df
 
-normalized_paint_colors = []
-for price in price_paint_color:
-    p = (price['price_mean'] - price_paint_color[0]['price_mean']) / (price_paint_color[-1]['price_mean'] - price_paint_color[0]['price_mean'])
-    normalized_paint_colors.append(p)
-
-for pc in price_paint_color:
-    df.loc[df['paint_color'] == pc['cor'], 'paint_color'] = normalized_paint_colors[price_paint_color.index(pc)]
-
-df.paint_color = pd.to_numeric(df.paint_color)
+df = cat_mean('car_type', df)
+df = cat_mean('paint_color', df)
+df = cat_mean('fuel', df)
+df = cat_mean('model_key', df)
 
 feature_w = []
 
@@ -73,8 +81,8 @@ df['sum_features'] = np.zeros(len(df))
 feature_w = sorted(feature_w, key=lambda k: k['mean'])
 import datetime as dt
 
-df['registration_date']=df['registration_date'].map(dt.datetime.toordinal)
-df['sold_at']=df['sold_at'].map(dt.datetime.toordinal)
+df['registration_date'] = df['registration_date'].map(dt.datetime.toordinal)
+df['sold_at'] = df['sold_at'].map(dt.datetime.toordinal)
 normalized_features = []
 
 for feature in feature_w:
@@ -92,13 +100,16 @@ X = df[[
     'engine_power',
     'registration_date',
     'paint_color',
-    'sum_features'
+    'sum_features',
+    'fuel',
+    'car_type',
+    'model_key'
 ]
 ]
 
-X['mileage']=(X['mileage']-X['mileage'].min())/(X['mileage'].max()-X['mileage'].min())
-X['engine_power']=(X['engine_power']-X['engine_power'].min())/(X['engine_power'].max()-X['engine_power'].min())
-X['registration_date']=(X['registration_date']-X['registration_date'].min())/(X['registration_date'].max()-X['registration_date'].min())
+X['mileage'] = (X['mileage']-X['mileage'].min())/(X['mileage'].max()-X['mileage'].min())
+X['engine_power'] = (X['engine_power']-X['engine_power'].min())/(X['engine_power'].max()-X['engine_power'].min())
+X['registration_date'] = (X['registration_date']-X['registration_date'].min())/(X['registration_date'].max()-X['registration_date'].min())
 print(X.head())
 from sklearn.model_selection import train_test_split
 
